@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Column Rearranger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 20px 0;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>CSV Column Rearranger</h1>
+    
+    <input type="file" id="csvFile" accept=".csv">
+    
+    <div class="controls" id="controls" style="display: none;">
+        <label for="columnSelect">Select Column:</label>
+        <select id="columnSelect"></select>
+        
+        <label for="positionSelect">Move to Position:</label>
+        <select id="positionSelect"></select>
+        
+        <button onclick="rearrangeColumns()">Rearrange</button>
+        <button onclick="downloadCSV()">Download Result</button>
+    </div>
+
+    <div id="tableContainer"></div>
+
+    <script>
+        let csvData = [];
+        let headers = [];
+
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    parseCSV(text);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            headers = lines[0].split(',').map(header => header.trim());
+            csvData = lines.slice(1).map(line => {
+                const values = line.split(',').map(value => value.trim());
+                return headers.reduce((obj, header, index) => {
+                    obj[header] = values[index] || '';
+                    return obj;
+                }, {});
+            });
+
+            populateControls();
+            displayTable();
+            document.getElementById('controls').style.display = 'block';
+        }
+
+        function populateControls() {
+            const columnSelect = document.getElementById('columnSelect');
+            const positionSelect = document.getElementById('positionSelect');
+            
+            columnSelect.innerHTML = '';
+            positionSelect.innerHTML = '';
+            
+            headers.forEach((header, index) => {
+                const columnOption = document.createElement('option');
+                columnOption.value = index;
+                columnOption.textContent = header;
+                columnSelect.appendChild(columnOption);
+                
+                const positionOption = document.createElement('option');
+                positionOption.value = index;
+                positionOption.textContent = index + 1;
+                positionSelect.appendChild(positionOption);
+            });
+        }
+
+        function rearrangeColumns() {
+            const columnIndex = parseInt(document.getElementById('columnSelect').value);
+            const newPosition = parseInt(document.getElementById('positionSelect').value);
+            
+            const header = headers.splice(columnIndex, 1)[0];
+            headers.splice(newPosition, 0, header);
+            
+            displayTable();
+        }
+
+        function displayTable() {
+            const container = document.getElementById('tableContainer');
+            let html = '<table><thead><tr>';
+            
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            csvData.forEach(row => {
+                html += '<tr>';
+                headers.forEach(header => {
+                    html += `<td>${row[header] || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function downloadCSV() {
+            let csvContent = headers.join(',') + '\n';
+            csvData.forEach(row => {
+                csvContent += headers.map(header => row[header] || '').join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rearranged_csv.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
