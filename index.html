@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Column Reorder</title>
+    <script src="./js/papaparse.min.js"></script>
+    <!-- 
+    SOURCE: 03-03-2025
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script> 
+    -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #output {
+            white-space: pre-wrap;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        #columnSelect {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reorder CSV Columns</h1>
+    <p>Upload a CSV file [(UTF-8) encoding], select a column, and it will be moved to the first position.</p>
+    
+    <input type="file" id="csvFile" accept=".csv" onchange="populateColumnSelect()">
+    <label for="columnSelect">Select column to move first:</label>
+    <select id="columnSelect"></select>
+    <button onclick="processFile()">Process CSV</button>
+    
+    <div id="output"></div>
+
+    <script>
+        let csvHeaders = []; // GLOBAL storing of headers for reference
+
+        function populateColumnSelect() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            const columnSelect = document.getElementById('columnSelect');
+
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                preview: 1, // Only read the first row for headers
+                complete: function(results) {
+                    csvHeaders = results.meta.fields;
+                    columnSelect.innerHTML = ""; // Clear previous options
+                    
+                    csvHeaders.forEach(header => {
+                        let option = document.createElement("option");
+                        option.value = header;
+                        option.textContent = header;
+                        columnSelect.appendChild(option);
+                    });
+                },
+                error: function(error) {
+                    console.error("Error parsing CSV:", error);
+                }
+            });
+        }
+
+        function processFile() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            const outputDiv = document.getElementById('output');
+            const selectedColumn = document.getElementById('columnSelect').value;
+
+            if (!file) {
+                outputDiv.textContent = "Please upload a CSV file first.";
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true, 
+                complete: function(results) {
+                    const data = results.data;
+                    const headers = results.meta.fields;
+
+                    if (!headers.includes(selectedColumn)) {
+                        outputDiv.textContent = "Selected column not found.";
+                        return;
+                    }
+
+                    // Reorder headers, move selected column to first position
+                    const newHeaders = [selectedColumn, ...headers.filter(h => h !== selectedColumn)];
+
+                    // Reorder each row's data
+                    const reorderedData = data.map(row => {
+                        let newRow = {};
+                        newHeaders.forEach(header => {
+                            newRow[header] = row[header];
+                        });
+                        return newRow;
+                    });
+
+                    // Convert back to CSV
+                    const newCsv = Papa.unparse({
+                        fields: newHeaders,
+                        data: reorderedData
+                    });
+
+                    // PRINT result
+                    outputDiv.textContent = newCsv;
+
+                    // Download new CSV
+                    downloadCsv(newCsv, 'reordered_output.csv');
+                },
+                error: function(error) {
+                    outputDiv.textContent = "Error parsing CSV: " + error.message;
+                }
+            });
+        }
+
+        function downloadCsv(csvContent, fileName) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
